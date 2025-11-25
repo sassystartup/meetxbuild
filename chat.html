@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat – MeetXBuild</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="chat">
+  <div class="anime-bg" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+  </div>
+  <div class="anime-scan" aria-hidden="true"></div>
+
+  <nav class="navbar">
+    <div class="logo">MeetXBuild</div>
+  </nav>
+
+  <main class="container">
+    <section class="section-band">
+      <div class="section-heading">
+        <h2>Chat</h2>
+        <p>Discuss ideas, MVPs, and next steps with your potential cofounder.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="chat-wrapper">
+          <div class="chat-header" id="chatHeader">Chat</div>
+          <div class="chat-messages" id="messages"></div>
+          <form class="chat-input" id="chatForm">
+            <input id="chatInput" placeholder="Type a message…">
+            <button type="submit" class="btn-cta-main small" style="border:none;">Send</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="swipe.html">
+      <div class="icon">❤️</div>
+      <span class="label">Swipe</span>
+    </a>
+    <a href="matches.html">
+      <div class="icon">🔥</div>
+      <span class="label">Matches</span>
+    </a>
+    <a href="chats.html" class="active">
+      <div class="icon">💬</div>
+      <span class="label">Chats</span>
+    </a>
+    <a href="profile.html">
+      <div class="icon">👤</div>
+      <span class="label">Profile</span>
+    </a>
+  </nav>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sign up – MeetXBuild</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="signup">
+  <nav class="navbar">
+    <div class="logo">MeetXBuild</div>
+  </nav>
+
+  <main class="container">
+    <div class="form-card">
+      <h2>Create your account</h2>
+      <form id="signupForm">
+        <div class="form-field">
+          <label>Full name</label>
+          <input name="fullName" required>
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" name="email" required>
+        </div>
+        <div class="form-field">
+          <label>Password</label>
+          <input type="password" name="password" required>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" type="submit">Sign up</button>
+        </div>
+      </form>
+      <p style="margin-top:1rem;font-size:0.9rem;">
+        Already have an account? <a href="login.html">Login</a>
+      </p>
+    </div>
+  </main>
+
+<script src="app.js" type="module"></script>
+</body>
+</html>

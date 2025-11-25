@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Aarav Patel",
+    "age": 29,
+    "photo": "https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg",
+    "status": "F-1 STEM OPT",
+    "location": "New York, NY",
+    "occupation": "Data Scientist",
+    "skills": "AI, ML, Python, Product",
+    "interests": "Healthtech, EdTech"
+  },
+  {
+    "name": "Sarah Kim",
+    "age": 32,
+    "photo": "https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg",
+    "status": "US Citizen",
+    "location": "San Francisco, CA",
+    "occupation": "Product Manager",
+    "skills": "Product, UX, Fundraising",
+    "interests": "AI, Marketplaces"
+  },
+  {
+    "name": "Miguel Santos",
+    "age": 31,
+    "photo": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg",
+    "status": "H-1B",
+    "location": "Austin, TX",
+    "occupation": "Full-stack Engineer",
+    "skills": "React, Node.js, AWS",
+    "interests": "FinTech, SaaS"
+  }
+]
