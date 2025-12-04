@@ -111,83 +111,82 @@ window.ensureSignedIn = ensureSignedIn;
 
 
 // 🔥 FIX 3 — Save BOTH photoURL and photoUrl for swipe.js compatibility
-export async function saveProfile(evt) {
-  if (evt && evt.preventDefault) evt.preventDefault();
+// ---- FINAL PRODUCTION SAVE PROFILE ----
+export async function saveProfile(ev) {
+  if (ev?.preventDefault) ev.preventDefault();
 
-  try {
-    const user = await ensureSignedIn();
-    if (!user) throw new Error("Not signed in");
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not logged in");
 
-    const form = document.getElementById("profileForm");
-    if (!form) throw new Error("profileForm not found");
+  const form = document.getElementById("profileForm");
+  if (!form) throw new Error("profileForm missing");
 
-    const fd = new FormData(form);
+  const fd = new FormData(form);
 
-    let city = fd.get("city") || "";
-    const cityManual = document.getElementById("cityManual");
-    const citySelect = document.getElementById("citySelect");
+  // --- City logic (select vs manual) ---
+  let city = fd.get("city") || "";
+  const cityManual = document.getElementById("cityManual");
+  const citySelect = document.getElementById("citySelect");
 
-    if (cityManual && cityManual.style.display !== "none" && cityManual.value.trim()) {
-      city = cityManual.value.trim();
-    } else if (citySelect && citySelect.style.display !== "none" && citySelect.value) {
-      city = citySelect.value;
-    }
-
-    const techSkills = (fd.get("techSkills") || "")
-      .toString()
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const skills = (fd.get("skills") || "")
-      .toString()
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    let photo = (fd.get("photoUrl") || "").toString().trim() || null;
-
-    const photoInput = document.getElementById("photo");
-    if (!photo && photoInput && photoInput.files && photoInput.files[0]) {
-      const file = photoInput.files[0];
-      const destRef = storageRef(storage, `profiles/${user.uid}/photo.jpg`);
-      await uploadBytes(destRef, file);
-      photo = await getDownloadURL(destRef);
-      const hidden = document.querySelector('input[name="photoUrl"]');
-      if (hidden) hidden.value = photo;
-    }
-
-    const payload = {
-      fullName: (fd.get("fullName") || "").toString().trim(),
-      role: fd.get("role") || "",
-      visaStatus: fd.get("visaStatus") || "",
-      occupation: fd.get("occupation") || "",
-      state: fd.get("state") || "",
-      city,
-      skills,
-      techSkills,
-
-      // 🔥 KEY FIX: save under both names
-      photoURL: photo,
-      photoUrl: photo,
-
-      visible: true,
-      updatedAt: serverTimestamp()
-    };
-
-    if (!payload.fullName) return alert("Please enter your full name.");
-    if (!payload.photoURL) return alert("Please upload a photo.");
-    if (!payload.skills.length) return alert("Add at least one skill.");
-
-    await setDoc(doc(db, "profiles", user.uid), payload, { merge: true });
-
-    window.location.href = "swipe.html";
-
-  } catch (err) {
-    console.error("saveProfile failed", err);
-    alert("Failed to save profile: " + (err.message || err));
+  if (cityManual?.style.display !== "none" && cityManual.value.trim()) {
+    city = cityManual.value.trim();
+  } else if (citySelect?.value) {
+    city = citySelect.value;
   }
+
+  // --- Process skills arrays ---
+  const skills = (fd.get("skills") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const techSkills = (fd.get("techSkills") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // --- Photo handling ---
+  let photo = fd.get("photoUrl")?.toString().trim() || null;
+  const photoInput = document.getElementById("photo");
+
+  if (!photo && photoInput?.files?.length) {
+    const file = photoInput.files[0];
+    const destRef = storageRef(storage, `profiles/${user.uid}/photo.jpg`);
+    await uploadBytes(destRef, file);
+    photo = await getDownloadURL(destRef);
+    const hidden = document.querySelector('input[name="photoUrl"]');
+    if (hidden) hidden.value = photo;
+  }
+
+  // --- Build profile data ---
+  const payload = {
+    uid: user.uid,
+    fullName: (fd.get("fullName") || "").trim(),
+    role: fd.get("role") || "",
+    visaStatus: fd.get("visaStatus") || "",
+    occupation: fd.get("occupation") || "",
+    state: fd.get("state") || "",
+    city,
+    skills,
+    techSkills,
+
+    photoURL: photo,
+    photoUrl: photo,
+
+    visible: true,
+    updatedAt: serverTimestamp()
+  };
+
+  // --- Validation ---
+  if (!payload.fullName) return alert("Full name is required.");
+  if (!payload.photoURL) return alert("Profile photo required.");
+  if (!payload.skills.length) return alert("Enter at least one skill.");
+
+  await setDoc(doc(db, "profiles", user.uid), payload, { merge: true });
+
+  window.location.href = "swipe.html";
 }
+
 window.saveProfile = saveProfile;
 
 
@@ -436,3 +435,4 @@ function initChatPage() {
     });
   });
 }
+
