@@ -266,60 +266,50 @@
     })();
   </script>
 
-  <!-- hook up to saveProfile in app.js -->
-  <script type="module">
-    async function waitFor(fnName, timeoutMs = 5000) {
-      const start = Date.now();
-      while (typeof window[fnName] !== 'function' && Date.now() - start < timeoutMs) {
-        await new Promise(r => setTimeout(r, 100));
-      }
-      return typeof window[fnName] === 'function';
+ <script type="module">
+  // Wait for app.js to expose saveProfile and then wire the form submit.
+  async function waitFor(fnName, timeoutMs = 5000) {
+    const start = Date.now();
+    while (typeof window[fnName] !== 'function' && Date.now() - start < timeoutMs) {
+      await new Promise(r => setTimeout(r, 100));
     }
+    return typeof window[fnName] === 'function';
+  }
 
-    (async () => {
-      const ready = await waitFor('saveProfile', 7000);
-      const form = document.getElementById('profileForm');
-      if (!form) {
-        console.error('profile.html: profileForm not found');
-        return;
-      }
-      if (!ready) console.warn('profile.html: saveProfile not ready — app.js may not have loaded');
+  (async () => {
+    const ready = await waitFor('saveProfile', 7000);
+    const form = document.getElementById('profileForm');
+    if (!form) {
+      console.error('profile.html: profileForm not found');
+      return;
+    }
+    if (!ready) console.warn('profile.html: saveProfile not ready — app.js may not have loaded');
 
-      form.addEventListener('submit', async (ev) => {
-        ev.preventDefault();
-        try {
-          console.log('profile: submit clicked');
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      try {
+        console.log('profile: submit clicked');
 
-          const name     = form.querySelector('input[name="fullName"]')?.value?.trim();
-          const skills   = (form.querySelector('input[name="skills"]')?.value || '').trim();
-          const photoUrl = form.querySelector('input[name="photoUrl"]')?.value?.trim();
+        const name   = form.querySelector('input[name="fullName"]')?.value?.trim();
+        const skills = (form.querySelector('input[name="skills"]')?.value || '').trim();
 
-          if (!name)   { alert('Please enter your full name'); return; }
-          if (!skills) { alert('Please enter at least one skill'); return; }
+        if (!name)   { alert('Please enter your full name'); return; }
+        if (!skills) { alert('Please enter at least one skill'); return; }
 
-          // allow either an already-uploaded URL OR a newly selected file
-          if (!photoUrl) {
-            const photoInput = document.getElementById('photo');
-            if (!photoInput || !photoInput.files || !photoInput.files[0]) {
-              alert('Please choose a profile photo.');
-              return;
-            }
-            // if a file is chosen, let saveProfile() handle uploading
-          }
-
-          if (typeof window.saveProfile === 'function') {
-            await window.saveProfile(ev);
-          } else {
-            console.warn('saveProfile missing — falling back to form.submit()');
-            form.submit();
-          }
-        } catch (err) {
-          console.error('profile: save failed', err);
-          alert('Save failed: ' + (err.message || err));
+        // 👉 Let saveProfile handle photo upload & validation.
+        if (typeof window.saveProfile === 'function') {
+          await window.saveProfile(ev);
+        } else {
+          console.warn('saveProfile missing — falling back to form.submit()');
+          form.submit();
         }
-      });
-    })();
-  </script>
+      } catch (err) {
+        console.error('profile: save failed', err);
+        alert('Save failed: ' + (err.message || err));
+      }
+    });
+  })();
+</script>
 
   <nav class="bottom-nav">
     <a href="swipe.html">
@@ -341,3 +331,4 @@
   </nav>
 </body>
 </html>
+
