@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-page="profile">
-    <div class="anime-bg" aria-hidden="true">
+  <div class="anime-bg" aria-hidden="true">
     <div class="blob b1"></div>
     <div class="blob b2"></div>
   </div>
@@ -137,15 +137,14 @@
         </div>
 
         <div class="form-field">
-         <label>Profile photo</label>
-         <div style="display:flex;gap:12px;align-items:center;">
-           <!-- hidden native input; label triggers it -->
-           <input id="photo" name="photoFile" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" style="display:none">
-           <input type="hidden" name="photoUrl" value="">
-           <label for="photo" class="btn-secondary" style="cursor:pointer;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);">Choose photo</label>
-           <button type="button" id="removePhotoBtn" class="btn-ghost" style="padding:6px 10px;border-radius:8px;display:none">Remove</button>
-         </div>
-         <img id="photoPreview" alt="photo preview" style="max-width:160px;display:none;border-radius:12px;margin-top:8px;">
+          <label>Profile photo</label>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input id="photo" name="photoFile" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" style="display:none">
+            <input type="hidden" name="photoUrl" value="">
+            <label for="photo" class="btn-secondary" style="cursor:pointer;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);">Choose photo</label>
+            <button type="button" id="removePhotoBtn" class="btn-ghost" style="padding:6px 10px;border-radius:8px;display:none">Remove</button>
+          </div>
+          <img id="photoPreview" alt="photo preview" style="max-width:160px;display:none;border-radius:12px;margin-top:8px;">
         </div>
 
         <div class="form-actions">
@@ -154,181 +153,174 @@
       </form>
     </div>
   </main>
-<script type="module" src="app.js"></script>
-<script type="module" src="profile-photo.js"></script>
 
-<script>
-  // small state -> popular cities map (extend as needed)
-  const STATE_CITIES = {
-    "CA": ["San Francisco","Los Angeles","San Diego","Sacramento","San Jose"],
-    "NY": ["New York","Buffalo","Rochester","Albany"],
-    "TX": ["Austin","Houston","Dallas","San Antonio"],
-    "FL": ["Miami","Orlando","Tampa","Tallahassee"],
-    "WA": ["Seattle","Spokane","Tacoma"],
-    "IL": ["Chicago","Springfield","Naperville"],
-    "MA": ["Boston","Cambridge","Worcester"],
-    "NJ": ["Newark","Jersey City","Princeton"],
-    "GA": ["Atlanta","Savannah"],
-    "PA": ["Philadelphia","Pittsburgh"]
-  };
-  // ---------- Technical skills sync ----------
-  const techSelect = document.getElementById('techSelect');
-  const techManual = document.getElementById('techManual');
-  const techHidden = document.querySelector('input[name="techSkills"]');
+  <!-- core app logic -->
+  <script type="module" src="app.js"></script>
 
-  function syncTechSkills() {
-    if (!techSelect || !techHidden) return;
-    const selected = Array.from(techSelect.selectedOptions).map(o => o.value).filter(Boolean);
-    if (selected.includes('Other')) {
-      techManual.style.display = 'block';
-      techManual.required = true;
-      const manualVal = techManual.value.trim();
-      if (manualVal) {
-        // replace 'Other' placeholder with manual value(s)
-        const idx = selected.indexOf('Other');
-        selected.splice(idx, 1, ...manualVal.split(',').map(s => s.trim()).filter(Boolean));
-      }
-    } else {
-      techManual.style.display = 'none';
-      techManual.required = false;
-    }
-    techHidden.value = selected.join(',');
-  }
-  techSelect?.addEventListener('change', syncTechSkills);
-  techManual?.addEventListener('input', syncTechSkills);
-  // ensure sync just before submit
-  document.getElementById('profileForm')?.addEventListener('submit', syncTechSkills);
+  <!-- cities + tech skills sync -->
+  <script>
+    const STATE_CITIES = {
+      "CA": ["San Francisco","Los Angeles","San Diego","Sacramento","San Jose"],
+      "NY": ["New York","Buffalo","Rochester","Albany"],
+      "TX": ["Austin","Houston","Dallas","San Antonio"],
+      "FL": ["Miami","Orlando","Tampa","Tallahassee"],
+      "WA": ["Seattle","Spokane","Tacoma"],
+      "IL": ["Chicago","Springfield","Naperville"],
+      "MA": ["Boston","Cambridge","Worcester"],
+      "NJ": ["Newark","Jersey City","Princeton"],
+      "GA": ["Atlanta","Savannah"],
+      "PA": ["Philadelphia","Pittsburgh"]
+    };
 
-  const stateSelect = document.getElementById('stateSelect');
-  const citySelect = document.getElementById('citySelect');
-  const cityManual = document.getElementById('cityManual');
+    const techSelect  = document.getElementById('techSelect');
+    const techManual  = document.getElementById('techManual');
+    const techHidden  = document.querySelector('input[name="techSkills"]');
 
-  function populateCitiesFor(state) {
-    citySelect.innerHTML = '<option value="">Select city</option>';
-    const cities = STATE_CITIES[state];
-    if (cities && cities.length) {
-      cityManual.style.display = 'none';
-      citySelect.style.display = 'block';
-      cities.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        opt.textContent = c;
-        citySelect.appendChild(opt);
-      });
-      citySelect.required = true;
-      cityManual.required = false;
-    } else {
-      // fallback: allow manual entry
-      citySelect.style.display = 'none';
-      citySelect.required = false;
-      cityManual.style.display = 'block';
-      cityManual.required = true;
-    }
-  }
-
-  stateSelect.addEventListener('change', (e) => populateCitiesFor(e.target.value));
-  // initialize if value pre-selected
-  if (stateSelect.value) populateCitiesFor(stateSelect.value);
-</script>
-<script>
-  // Fallback helpers to ensure file chooser and preview/remove behavior
-  (function(){
-    const input = document.getElementById('photo');
-    const removeBtn = document.getElementById('removePhotoBtn');
-    const preview = document.getElementById('photoPreview');
-    if (!input) return;
-
-    // If label click doesn't open dialog in some environments, open programmatically on label click
-    const label = document.querySelector('label[for="photo"]');
-    if (label) {
-      label.addEventListener('click', (e) => {
-        // Some mobile browsers block label->input if input is hidden; open programmatically as fallback
-        try { input.click(); } catch (err) {}
-      });
-    }
-
-    // show remove btn and preview when file selected (profile-photo.js will also populate preview)
-    input.addEventListener('change', () => {
-      if (input.files && input.files[0]) {
-        removeBtn.style.display = 'inline-block';
-        preview.style.display = 'block';
-        // create temporary preview if profile-photo.js didn't set it yet
-        if (!preview.src) preview.src = URL.createObjectURL(input.files[0]);
+    function syncTechSkills() {
+      if (!techSelect || !techHidden) return;
+      const selected = Array.from(techSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      if (selected.includes('Other')) {
+        techManual.style.display = 'block';
+        techManual.required = true;
+        const manualVal = techManual.value.trim();
+        if (manualVal) {
+          const idx = selected.indexOf('Other');
+          selected.splice(idx, 1, ...manualVal.split(',').map(s => s.trim()).filter(Boolean));
+        }
       } else {
-        removeBtn.style.display = 'none';
-        preview.style.display = 'none';
+        techManual.style.display = 'none';
+        techManual.required = false;
       }
-    });
+      techHidden.value = selected.join(',');
+    }
 
-    if (removeBtn) {
-      removeBtn.addEventListener('click', () => {
+    techSelect?.addEventListener('change', syncTechSkills);
+    techManual?.addEventListener('input', syncTechSkills);
+    document.getElementById('profileForm')?.addEventListener('submit', syncTechSkills);
+
+    const stateSelect = document.getElementById('stateSelect');
+    const citySelect  = document.getElementById('citySelect');
+    const cityManual  = document.getElementById('cityManual');
+
+    function populateCitiesFor(state) {
+      citySelect.innerHTML = '<option value="">Select city</option>';
+      const cities = STATE_CITIES[state];
+      if (cities && cities.length) {
+        cityManual.style.display = 'none';
+        citySelect.style.display = 'block';
+        cities.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          citySelect.appendChild(opt);
+        });
+        citySelect.required = true;
+        cityManual.required = false;
+      } else {
+        citySelect.style.display = 'none';
+        citySelect.required = false;
+        cityManual.style.display = 'block';
+        cityManual.required = true;
+      }
+    }
+
+    stateSelect.addEventListener('change', (e) => populateCitiesFor(e.target.value));
+    if (stateSelect.value) populateCitiesFor(stateSelect.value);
+  </script>
+
+  <!-- photo preview / remove (no upload here) -->
+  <script>
+    (function() {
+      const input   = document.getElementById('photo');
+      const remove  = document.getElementById('removePhotoBtn');
+      const preview = document.getElementById('photoPreview');
+      if (!input) return;
+
+      const label = document.querySelector('label[for="photo"]');
+      if (label) {
+        label.addEventListener('click', () => {
+          try { input.click(); } catch (e) {}
+        });
+      }
+
+      input.addEventListener('change', () => {
+        if (input.files && input.files[0]) {
+          remove.style.display = 'inline-block';
+          preview.style.display = 'block';
+          preview.src = URL.createObjectURL(input.files[0]);
+        } else {
+          remove.style.display = 'none';
+          preview.style.display = 'none';
+          preview.src = '';
+        }
+      });
+
+      remove.addEventListener('click', () => {
         input.value = '';
         preview.src = '';
         preview.style.display = 'none';
-        removeBtn.style.display = 'none';
+        remove.style.display = 'none';
         const hidden = document.querySelector('input[name="photoUrl"]');
         if (hidden) hidden.value = '';
       });
-    }
-  })();
-</script>
-<script type="module">
-  // Wait for app.js to expose saveProfile and auth, then wire the form submit.
-  async function waitFor(fnName, timeoutMs = 5000) {
-    const start = Date.now();
-    while (typeof window[fnName] !== 'function' && Date.now() - start < timeoutMs) {
-      await new Promise(r => setTimeout(r, 100));
-    }
-    return typeof window[fnName] === 'function';
-  }
+    })();
+  </script>
 
-  (async () => {
-    const ready = await waitFor('saveProfile', 7000);
-    const form = document.getElementById('profileForm');
-    if (!form) {
-      console.error('profile.html: profileForm not found');
-      return;
-    }
-    if (!ready) console.warn('profile.html: saveProfile not ready — app.js may not have loaded');
-
-    form.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      try {
-        console.log('profile: submit clicked');
-
-        // Basic pre-checks to help debug common failures
-        const name = form.querySelector('input[name="fullName"]')?.value?.trim();
-        const skills = (form.querySelector('input[name="skills"]')?.value || '').trim();
-        const photoUrl = form.querySelector('input[name="photoUrl"]')?.value?.trim();
-        console.log({ name, skills, photoUrl, auth: !!window.auth, saveProfile: typeof window.saveProfile });
-
-        if (!name) { alert('Please enter your full name'); return; }
-        if (!skills) { alert('Please enter at least one skill'); return; }
-        if (!photoUrl) {
-          // maybe user selected a file but upload didn't finish
-          const photoInput = document.getElementById('photo');
-          if (photoInput && photoInput.files && photoInput.files[0]) {
-            alert('Photo selected but not uploaded yet. Wait for the upload to finish (check console).');
-            return;
-          }
-          alert('Please choose and upload a profile photo.');
-          return;
-        }
-
-        // call central save handler if available, else fallback to native submit
-        if (typeof window.saveProfile === 'function') {
-          await window.saveProfile(ev);
-        } else {
-          console.warn('saveProfile missing — falling back to form.submit()');
-          form.submit();
-        }
-      } catch (err) {
-        console.error('profile: save failed', err);
-        alert('Save failed: ' + (err.message || err));
+  <!-- hook up to saveProfile in app.js -->
+  <script type="module">
+    async function waitFor(fnName, timeoutMs = 5000) {
+      const start = Date.now();
+      while (typeof window[fnName] !== 'function' && Date.now() - start < timeoutMs) {
+        await new Promise(r => setTimeout(r, 100));
       }
-    });
-  })();
-</script>
+      return typeof window[fnName] === 'function';
+    }
+
+    (async () => {
+      const ready = await waitFor('saveProfile', 7000);
+      const form = document.getElementById('profileForm');
+      if (!form) {
+        console.error('profile.html: profileForm not found');
+        return;
+      }
+      if (!ready) console.warn('profile.html: saveProfile not ready — app.js may not have loaded');
+
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        try {
+          console.log('profile: submit clicked');
+
+          const name     = form.querySelector('input[name="fullName"]')?.value?.trim();
+          const skills   = (form.querySelector('input[name="skills"]')?.value || '').trim();
+          const photoUrl = form.querySelector('input[name="photoUrl"]')?.value?.trim();
+
+          if (!name)   { alert('Please enter your full name'); return; }
+          if (!skills) { alert('Please enter at least one skill'); return; }
+
+          // allow either an already-uploaded URL OR a newly selected file
+          if (!photoUrl) {
+            const photoInput = document.getElementById('photo');
+            if (!photoInput || !photoInput.files || !photoInput.files[0]) {
+              alert('Please choose a profile photo.');
+              return;
+            }
+            // if a file is chosen, let saveProfile() handle uploading
+          }
+
+          if (typeof window.saveProfile === 'function') {
+            await window.saveProfile(ev);
+          } else {
+            console.warn('saveProfile missing — falling back to form.submit()');
+            form.submit();
+          }
+        } catch (err) {
+          console.error('profile: save failed', err);
+          alert('Save failed: ' + (err.message || err));
+        }
+      });
+    })();
+  </script>
+
   <nav class="bottom-nav">
     <a href="swipe.html">
       <div class="icon">❤️</div>
