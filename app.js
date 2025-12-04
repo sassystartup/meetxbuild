@@ -32,6 +32,7 @@ import {
   getDownloadURL
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
+
 // ---------- Firebase config ----------
 const firebaseConfig = {
   apiKey: "AIzaSyCi-WcNMhWGYX8kS6_1kR2ZsPQT_NwBvhc",
@@ -42,6 +43,7 @@ const firebaseConfig = {
   appId: "1:186859990480:web:8a548bcf722f173a4dddd5",
   measurementId: "G-FD5SXKZPRG"
 };
+
 
 // ---------- Initialize Firebase ----------
 const app = initializeApp(firebaseConfig);
@@ -55,18 +57,63 @@ window.db = db;
 window.storage = storage;
 window.meUid = null;
 
+
+
+// 🔥 FIX 1 — expose handleSwipe globally so swipe.js can call it
+window.handleSwipe = async function(myId, targetId, liked) {
+  const swipeRef = doc(db, "swipes", `${myId}_${targetId}`);
+  await setDoc(swipeRef, {
+    from: myId,
+    to: targetId,
+    liked,
+    timestamp: serverTimestamp()
+  });
+
+  // Check if mutual
+  if (liked) {
+    const reverseRef = doc(db, "swipes", `${targetId}_${myId}`);
+    const reverseSnap = await getDoc(reverseRef);
+    if (reverseSnap.exists() && reverseSnap.data().liked) {
+      const matchId = [myId, targetId].sort().join("_");
+      await setDoc(doc(db, "matches", matchId), {
+        users: [myId, targetId],
+        createdAt: serverTimestamp()
+      });
+    }
+  }
+};
+
+
+
+
 // Helper: ensure user signed in via Google popup
 export async function ensureSignedIn() {
   if (auth.currentUser) return auth.currentUser;
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
+
+  // 🔥 FIX 2 — After Google Login → check if profile exists → redirect accordingly
+  const user = result.user;
+  const ref = doc(db, "profiles", user.uid);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    window.location.href = "swipe.html";   // returning user
+  } else {
+    window.location.href = "profile.html"; // new user
+  }
+
   return result.user;
 }
 window.ensureSignedIn = ensureSignedIn;
 
-// Central save handler used by profile page
+
+
+
+// 🔥 FIX 3 — Save BOTH photoURL and photoUrl for swipe.js compatibility
 export async function saveProfile(evt) {
   if (evt && evt.preventDefault) evt.preventDefault();
+
   try {
     const user = await ensureSignedIn();
     if (!user) throw new Error("Not signed in");
@@ -76,7 +123,6 @@ export async function saveProfile(evt) {
 
     const fd = new FormData(form);
 
-    // City: prefer manual input if visible
     let city = fd.get("city") || "";
     const cityManual = document.getElementById("cityManual");
     const citySelect = document.getElementById("citySelect");
@@ -87,102 +133,82 @@ export async function saveProfile(evt) {
       city = citySelect.value;
     }
 
-    // tech skills hidden input (comma-separated string → array)
-    const techHidden = (fd.get("techSkills") || "").toString();
-    const techSkills = techHidden
-      ? techHidden.split(",").map((s) => s.trim()).filter(Boolean)
-      : [];
-
-    // general skills (textarea)
-    const skillsRaw = (fd.get("skills") || "").toString();
-    const skills = skillsRaw
+    const techSkills = (fd.get("techSkills") || "")
+      .toString()
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
 
-    // photoUrl may be set by profile-photo.js; if not and a file is selected, upload now
-    let photoURL = (fd.get("photoUrl") || "").toString().trim() || null;
+    const skills = (fd.get("skills") || "")
+      .toString()
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    let photo = (fd.get("photoUrl") || "").toString().trim() || null;
+
     const photoInput = document.getElementById("photo");
-    if (!photoURL && photoInput && photoInput.files && photoInput.files[0]) {
+    if (!photo && photoInput && photoInput.files && photoInput.files[0]) {
       const file = photoInput.files[0];
       const destRef = storageRef(storage, `profiles/${user.uid}/photo.jpg`);
       await uploadBytes(destRef, file);
-      photoURL = await getDownloadURL(destRef);
-
-      // update hidden field so UI reflects it
+      photo = await getDownloadURL(destRef);
       const hidden = document.querySelector('input[name="photoUrl"]');
-      if (hidden) hidden.value = photoURL;
-      console.log("Uploaded photo, url=", photoURL);
+      if (hidden) hidden.value = photo;
     }
 
     const payload = {
       fullName: (fd.get("fullName") || "").toString().trim(),
-      role: (fd.get("role") || "").toString(),
-      visaStatus: (fd.get("visaStatus") || "").toString(),
-      occupation: (fd.get("occupation") || "").toString(),
-      state: (fd.get("state") || "").toString(),
+      role: fd.get("role") || "",
+      visaStatus: fd.get("visaStatus") || "",
+      occupation: fd.get("occupation") || "",
+      state: fd.get("state") || "",
       city,
       skills,
       techSkills,
-      photoURL,
+
+      // 🔥 KEY FIX: save under both names
+      photoURL: photo,
+      photoUrl: photo,
+
       visible: true,
       updatedAt: serverTimestamp()
     };
 
-    // Basic validation
-    if (!payload.fullName) {
-      alert("Please enter your full name.");
-      return;
-    }
-    if (!payload.photoURL) {
-      alert("Please choose and upload a profile photo.");
-      return;
-    }
-    if (!payload.skills || payload.skills.length === 0) {
-      alert("Please add at least one skill (comma separated).");
-      return;
-    }
+    if (!payload.fullName) return alert("Please enter your full name.");
+    if (!payload.photoURL) return alert("Please upload a photo.");
+    if (!payload.skills.length) return alert("Add at least one skill.");
 
-    // Save to Firestore under profiles/{uid}
-    const ref = doc(db, "profiles", user.uid);
-    await setDoc(ref, payload, { merge: true });
-    console.log("Profile saved for", user.uid);
+    await setDoc(doc(db, "profiles", user.uid), payload, { merge: true });
 
-    // Redirect to swipe page
     window.location.href = "swipe.html";
+
   } catch (err) {
     console.error("saveProfile failed", err);
     alert("Failed to save profile: " + (err.message || err));
-    throw err;
   }
 }
 window.saveProfile = saveProfile;
 
-// Optional sign-out helper
-window.signOutUser = async () => {
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.warn(e);
-  }
-};
 
-// Auth state watcher — keep global meUid, notify swipe.js if present
+
+
+// ---------- Auth State Observer ----------
 onAuthStateChanged(auth, (user) => {
   window.meUid = user ? user.uid : null;
-  console.log("auth changed", window.meUid);
-  try {
-    if (window.meUid) {
-      if (typeof window.startLikesListener === "function") window.startLikesListener();
-    } else {
-      if (typeof window.stopLikesListener === "function") window.stopLikesListener();
-    }
-  } catch (e) {
-    console.warn(e);
+
+  // Start or stop swipe like listeners
+  if (user) {
+    if (typeof window.startLikesListener === "function") window.startLikesListener();
+  } else {
+    if (typeof window.stopLikesListener === "function") window.stopLikesListener();
   }
 });
 
-// ---------- Helpers ----------
+
+
+
+// ---------- Helper ----------
 function requireAuth(onReady) {
   onAuthStateChanged(auth, (user) => {
     if (!user) {
@@ -196,323 +222,202 @@ function requireAuth(onReady) {
 }
 
 function getQueryParam(name) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(name);
+  return new URLSearchParams(window.location.search).get(name);
 }
+
+
+
 
 // ---------- Router ----------
 document.addEventListener("DOMContentLoaded", () => {
-  const page = document.body.dataset.page; // set in each HTML: <body data-page="login"> etc.
+  const page = document.body.dataset.page;
 
   switch (page) {
-    case "signup":
-      initSignupPage();
-      break;
-    case "login":
-      initLoginPage();
-      break;
-    case "profile":
-      initProfilePage();
-      break;
-    case "swipe":
-      // swipe logic is handled by swipe.js (which uses window.auth/db)
-      break;
-    case "matches":
-      initMatchesPage();
-      break;
-    case "chats":
-      initChatsPage();
-      break;
-    case "chat":
-      initChatPage();
-      break;
-    default:
-      break;
+    case "signup": initSignupPage(); break;
+    case "login": initLoginPage(); break;
+    case "profile": initProfilePage(); break;
+    case "matches": initMatchesPage(); break;
+    case "chats": initChatsPage(); break;
+    case "chat": initChatPage(); break;
+    case "swipe": break; // handled by swipe.js
+    default: break;
   }
 });
 
-// ================= SIGNUP =================
+
+
+
+// ---------- SIGN UP ----------
 function initSignupPage() {
-  const form =
-    document.getElementById("signupForm") ||
-    document.getElementById("signup-form");
-
-  if (!form) {
-    console.warn("Signup form not found");
-    return;
-  }
+  const form = document.getElementById("signupForm");
+  if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const email =
-      form.email?.value.trim() ||
-      document.getElementById("signup-email")?.value?.trim();
-    const password =
-      form.password?.value.trim() ||
-      document.getElementById("signup-password")?.value?.trim();
+    const email = form.email.value.trim();
+    const password = form.password.value.trim();
 
-    if (!email || !password) {
-      alert("Email and password are required.");
-      return;
-    }
+    if (!email || !password) return alert("Email & password required");
 
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      console.log("User created:", cred.user.uid);
-      window.location.href = "profile.html";
-    } catch (err) {
-      console.error("Signup error:", err);
-      alert(err.message);
-    }
+    await createUserWithEmailAndPassword(auth, email, password);
+
+    window.location.href = "profile.html";
   });
 }
 
-// ================= LOGIN =================
+
+
+
+// ---------- LOGIN ----------
 function initLoginPage() {
-  const form =
-    document.getElementById("loginForm") ||
-    document.getElementById("login-form");
-
-  if (!form) {
-    console.warn("Login form not found (Google login may be handled inline)");
-    return;
-  }
+  const form = document.getElementById("loginForm");
+  if (!form) return;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const email =
-      form.email?.value.trim() ||
-      document.getElementById("login-email")?.value?.trim();
-    const password =
-      form.password?.value.trim() ||
-      document.getElementById("login-password")?.value?.trim();
+    const email = form.email.value.trim();
+    const password = form.password.value.trim();
 
-    if (!email || !password) {
-      alert("Email and password are required.");
-      return;
-    }
+    await signInWithEmailAndPassword(auth, email, password);
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log("Logged in");
-      window.location.href = "swipe.html";
-    } catch (err) {
-      console.error("Login error:", err);
-      alert(err.message);
-    }
+    // 🔥 FIX 4 — same logic as Google login
+    const ref = doc(db, "profiles", auth.currentUser.uid);
+    const snap = await getDoc(ref);
+
+    window.location.href = snap.exists() ? "swipe.html" : "profile.html";
   });
 }
 
-// ================= PROFILE (prefill only) =================
+
+
+
+// ---------- PROFILE (prefill) ----------
 function initProfilePage() {
   requireAuth(async (user) => {
-    const form =
-      document.getElementById("profile-form") ||
-      document.getElementById("profileForm");
-    if (!form) {
-      console.warn("Profile form not found");
-      return;
-    }
+    const form = document.getElementById("profileForm");
+    if (!form) return;
 
-    const profileRef = doc(db, "profiles", user.uid);
-    const snap = await getDoc(profileRef);
+    const snap = await getDoc(doc(db, "profiles", user.uid));
+    if (!snap.exists()) return;
 
-    if (snap.exists()) {
-      const d = snap.data();
-      if (form.fullName) form.fullName.value = d.fullName || "";
+    const d = snap.data();
 
-      // Support both immigrantStatus and visaStatus (for older profiles)
-      const immInput = form.immigrantStatus || form.visaStatus;
-      if (immInput) immInput.value = d.immigrantStatus || d.visaStatus || "";
+    form.fullName.value = d.fullName || "";
+    form.skills.value = Array.isArray(d.skills) ? d.skills.join(", ") : "";
+    form.role.value = d.role || "";
+    form.occupation.value = d.occupation || "";
+    form.state.value = d.state || "";
+    form.city.value = d.city || "";
 
-      if (form.occupation) form.occupation.value = d.occupation || "";
-      if (form.skills)
-        form.skills.value = Array.isArray(d.skills) ? d.skills.join(", ") : d.skills || "";
-      if (form.role) form.role.value = d.role || "";
-      if (form.state) form.state.value = d.state || "";
-      if (form.city) form.city.value = d.city || "";
-
-      if (form.photoUrl) {
-        form.photoUrl.value = d.photoURL || d.photoUrl || "";
-      }
-    }
+    form.photoUrl.value = d.photoURL || d.photoUrl || "";
   });
 }
 
-// ================= SWIPE (legacy – swipe.js now handles UI) =================
-async function initSwipePage() {
-  // left intentionally minimal; real swipe deck logic lives in swipe.js
-  console.log("Swipe page: using swipe.js for card logic");
-}
 
-// ---------- swipe storage helpers (for old flow / chat & matches) ----------
-async function handleSwipe(myId, targetId, liked) {
-  const swipeRef = doc(db, "swipes", `${myId}_${targetId}`);
-  await setDoc(swipeRef, {
-    from: myId,
-    to: targetId,
-    liked,
-    timestamp: serverTimestamp()
-  });
 
-  if (!liked) return;
 
-  // Check if they liked me back
-  const reverseRef = doc(db, "swipes", `${targetId}_${myId}`);
-  const reverseSnap = await getDoc(reverseRef);
-
-  if (reverseSnap.exists() && reverseSnap.data().liked) {
-    const matchId = [myId, targetId].sort().join("_");
-    await setDoc(doc(db, "matches", matchId), {
-      users: [myId, targetId],
-      createdAt: serverTimestamp()
-    });
-  }
-}
-
-// ================= MATCHES =================
-async function fetchMatchesForUser(userId) {
+// ---------- MATCHES ----------
+async function fetchMatchesForUser(uid) {
   const qLikes = query(
     collection(db, "swipes"),
-    where("from", "==", userId),
+    where("from", "==", uid),
     where("liked", "==", true)
   );
 
   const likeSnap = await getDocs(qLikes);
   const matches = [];
 
-  for (const likeDoc of likeSnap.docs) {
-    const toId = likeDoc.data().to;
-    const backRef = doc(db, "swipes", `${toId}_${userId}`);
-    const backSnap = await getDoc(backRef);
+  for (const docSnap of likeSnap.docs) {
+    const targetId = docSnap.data().to;
+    const reverseSnap = await getDoc(doc(db, "swipes", `${targetId}_${uid}`));
 
-    if (backSnap.exists() && backSnap.data().liked) {
-      const profSnap = await getDoc(doc(db, "profiles", toId));
-      if (profSnap.exists()) {
-        matches.push({ id: toId, ...profSnap.data() });
-      }
+    if (reverseSnap.exists() && reverseSnap.data().liked) {
+      const prof = await getDoc(doc(db, "profiles", targetId));
+      if (prof.exists()) matches.push({ id: targetId, ...prof.data() });
     }
   }
+
   return matches;
 }
 
 function initMatchesPage() {
-  const listEl = document.getElementById("matchesList");
-  if (!listEl) return;
+  const list = document.getElementById("matchesList");
+  if (!list) return;
 
   requireAuth(async (user) => {
     const matches = await fetchMatchesForUser(user.uid);
 
     if (!matches.length) {
-      listEl.innerHTML = "<p>No matches yet. Keep swiping!</p>";
+      list.innerHTML = "<p>No matches yet</p>";
       return;
     }
 
     matches.forEach((m) => {
-      const li = document.createElement("li");
-      li.className = "match-item";
-      li.innerHTML = `
-        ${
-          m.photoURL
-            ? `<img src="${m.photoURL}" class="avatar">`
-            : `<div class="avatar placeholder">${(m.fullName || "U")[0]}</div>`
-        }
-        <div class="match-main">
-          <div class="match-name">${m.fullName || "User"}</div>
-          <div class="match-meta">${m.immigrantStatus || m.visaStatus || ""}</div>
-        </div>
-        <a href="chat.html?with=${m.id}" class="match-chat-link">Chat →</a>
+      list.innerHTML += `
+        <li class="match-item">
+          <img src="${m.photoURL || m.photoUrl}" class="avatar">
+          <div>${m.fullName}</div>
+          <a href="chat.html?with=${m.id}">Chat →</a>
+        </li>
       `;
-      listEl.appendChild(li);
     });
   });
 }
 
-// ================= CHATS LIST =================
+
+
+
+// ---------- CHATS ----------
 function initChatsPage() {
-  const listEl = document.getElementById("chatsList");
-  if (!listEl) return;
+  const list = document.getElementById("chatsList");
+  if (!list) return;
 
   requireAuth(async (user) => {
     const matches = await fetchMatchesForUser(user.uid);
 
-    if (!matches.length) {
-      listEl.innerHTML =
-        "<p>No chats yet. Match with someone to start talking.</p>";
-      return;
-    }
-
     matches.forEach((m) => {
-      const li = document.createElement("li");
-      li.className = "chat-list-item";
-      li.innerHTML = `
-        ${
-          m.photoURL
-            ? `<img src="${m.photoURL}" class="avatar">`
-            : `<div class="avatar placeholder">${(m.fullName || "U")[0]}</div>`
-        }
-        <div class="chat-list-main">
-          <div class="chat-list-name">${m.fullName || "User"}</div>
-          <div class="chat-list-meta">${m.immigrantStatus || m.visaStatus || ""}</div>
-        </div>
-        <a href="chat.html?with=${m.id}" class="chat-list-arrow">›</a>
+      list.innerHTML += `
+        <li class="chat-list-item">
+          <img src="${m.photoURL || m.photoUrl}" class="avatar">
+          <div>${m.fullName}</div>
+          <a href="chat.html?with=${m.id}">›</a>
+        </li>
       `;
-      listEl.appendChild(li);
     });
   });
 }
 
-// ================= CHAT =================
+
+
+
+// ---------- CHAT ----------
 function initChatPage() {
-  const headerEl = document.getElementById("chatHeader");
+  const header = document.getElementById("chatHeader");
   const msgsEl = document.getElementById("messages");
   const form = document.getElementById("chatForm");
   const input = document.getElementById("chatInput");
-  if (!headerEl || !msgsEl || !form || !input) return;
 
   const otherId = getQueryParam("with");
-  if (!otherId) {
-    headerEl.textContent = "No user selected";
-    return;
-  }
+  if (!otherId) return;
 
   requireAuth(async (user) => {
-    const meId = user.uid;
-
-    // Get other user's profile
-    const otherSnap = await getDoc(doc(db, "profiles", otherId));
-    const other = otherSnap.exists()
-      ? otherSnap.data()
-      : { fullName: "User" };
-
-    headerEl.textContent = `Chat with ${other.fullName || "User"}`;
-
-    const convoId = meId < otherId ? `${meId}_${otherId}` : `${otherId}_${meId}`;
+    const convoId = user.uid < otherId ? `${user.uid}_${otherId}` : `${otherId}_${user.uid}`;
     const messagesCol = collection(db, "conversations", convoId, "messages");
-    const qMsgs = query(messagesCol, orderBy("createdAt"));
 
-    // realtime listener
-    onSnapshot(qMsgs, (snap) => {
+    const otherSnap = await getDoc(doc(db, "profiles", otherId));
+    header.textContent = "Chat with " + (otherSnap.data()?.fullName || "User");
+
+    onSnapshot(query(messagesCol, orderBy("createdAt")), (snap) => {
       msgsEl.innerHTML = "";
-      snap.forEach((docSnap) => {
-        const msg = docSnap.data();
-        const div = document.createElement("div");
-        div.className = "message " + (msg.from === meId ? "me" : "them");
-        const ts =
-          msg.createdAt && msg.createdAt.toDate
-            ? msg.createdAt
-                .toDate()
-                .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "";
-        div.innerHTML = `
-          <div class="bubble">${msg.text || ""}</div>
-          <div class="meta">${ts}</div>
+      snap.forEach((m) => {
+        msgsEl.innerHTML += `
+          <div class="message ${m.data().from === user.uid ? "me" : "them"}">
+            <div class="bubble">${m.data().text}</div>
+          </div>
         `;
-        msgsEl.appendChild(div);
       });
-      msgsEl.scrollTop = msgsEl.scrollHeight;
     });
 
     form.addEventListener("submit", async (e) => {
@@ -521,11 +426,12 @@ function initChatPage() {
       if (!text) return;
 
       await addDoc(messagesCol, {
-        from: meId,
+        from: user.uid,
         to: otherId,
         text,
         createdAt: serverTimestamp()
       });
+
       input.value = "";
     });
   });
