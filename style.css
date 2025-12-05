@@ -724,3 +724,39 @@ p{margin:0}
   background: #3b82f6;
 }
 
+/* ====== FIX SAVE BUTTON NOT CLICKABLE ====== */
+
+/* 1️⃣ Prevent multi-select from overlapping other elements */
+select[multiple],
+.form-field select[multiple] {
+  position: relative !important;
+  z-index: 1 !important;
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Add extra spacing so button isn't covered */
+.form-field select[multiple] {
+  margin-bottom: 60px !important;
+}
+
+/* 2️⃣ Ensure the submit button is ALWAYS clickable */
+button[type="submit"],
+.save-button,
+#saveProfileBtn {
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  display: inline-block;
+}
+
+/* 3️⃣ Make sure no container is covering the button */
+.form-card,
+main.container {
+  position: relative;
+  z-index: 5;
+}
+
+
