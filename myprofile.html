@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Profile – MeetXBuild</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .profile-preview-container {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 26px;
+      text-align: center;
+    }
+
+    .profile-photo-big {
+      width: 100%;
+      height: 420px;
+      border-radius: 18px;
+      background-size: cover;
+      background-position: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+
+    .profile-name {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-top: 18px;
+    }
+
+    .profile-subtext {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-bottom: 12px;
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.1);
+      margin: 4px;
+      font-size: 0.85rem;
+    }
+
+    .edit-btn {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 10px 18px;
+      border-radius: 12px;
+      background: #4ac1ff;
+      color: #000;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body data-page="preview">
+
+  <div class="anime-bg" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+  </div>
+  <div class="anime-scan" aria-hidden="true"></div>
+
+  <nav class="navbar">
+    <div class="logo">MeetXBuild</div>
+  </nav>
+
+  <main class="container">
+    <div class="profile-preview-container">
+
+      <div id="photoBig" class="profile-photo-big"></div>
+
+      <div class="profile-name" id="nameText"></div>
+      <div class="profile-subtext" id="locationText"></div>
+
+      <h3 style="margin-top:18px;">Visa / Occupation</h3>
+      <div id="extraInfo"></div>
+
+      <h3 style="margin-top:18px;">Skills</h3>
+      <div id="skillsList"></div>
+
+      <h3 style="margin-top:18px;">Technical Skills</h3>
+      <div id="techList"></div>
+
+      <a href="profile.html" class="edit-btn">Edit Profile</a>
+    </div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="swipe.html">
+      <span class="label">Swipe</span>
+    </a>
+    <a href="matches.html">
+      <span class="label">Matches</span>
+    </a>
+    <a href="chats.html">
+      <span class="label">Chats</span>
+    </a>
+    <a href="my-profile.html" class="active">
+      <span class="label">Profile</span>
+    </a>
+  </nav>
+
+  <script type="module" src="app.js"></script>
+
+  <script type="module">
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const auth = window.auth;
+    const db = window.db;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      firebaseReady();
+    });
+
+    function firebaseReady() {
+      window.auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+          window.location.href = "login.html";
+          return;
+        }
+
+        const snap = await getDoc(doc(db, "profiles", user.uid));
+        if (!snap.exists()) return;
+
+        const d = snap.data();
+
+        // PHOTO
+        document.getElementById("photoBig").style.backgroundImage =
+          `url('${d.photoURL || d.photoUrl}')`;
+
+        // NAME
+        document.getElementById("nameText").textContent = d.fullName;
+
+        // LOCATION
+        document.getElementById("locationText").textContent =
+          `${d.city || ""}, ${d.state || ""}`;
+
+        // Visa / Occupation
+        document.getElementById("extraInfo").innerHTML = `
+          <div class="chip">${d.visaStatus || ""}</div>
+          <div class="chip">${d.occupation || ""}</div>
+        `;
+
+        // Skills
+        const skillsList = document.getElementById("skillsList");
+        skillsList.innerHTML = "";
+        if (Array.isArray(d.skills)) {
+          d.skills.forEach(s => {
+            skillsList.innerHTML += `<div class="chip">${s}</div>`;
+          });
+        }
+
+        // Technical Skills
+        const techList = document.getElementById("techList");
+        techList.innerHTML = "";
+        if (Array.isArray(d.techSkills)) {
+          d.techSkills.forEach(s => {
+            techList.innerHTML += `<div class="chip">${s}</div>`;
+          });
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>
