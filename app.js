@@ -35,7 +35,7 @@ import {
 
 // ---------- Firebase config ----------
 const firebaseConfig = {
-  apiKey: "AIzaSyCi-WcNMhWGYX8kS6_1kR2ZsPQT_NwBvhc",
+  apiKey: "",
   authDomain: "meetxbuild.firebaseapp.com",
   projectId: "meetxbuild",
   storageBucket: "meetxbuild.firebasestorage.app",
@@ -435,4 +435,5 @@ function initChatPage() {
     });
   });
 }
+
 
